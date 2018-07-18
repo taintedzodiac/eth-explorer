@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.2/css/bootstrap.min.css" crossorigin="anonymous">
+  
+  <script src="./scripts/link_helper.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>ETH Block Analyzer</h1>
+    <div class="row">
+      <div id="input">
+        <form onsubmit="return false;">
+          <input type="text" size="50" id="blockNumber" placeholder="block number or hash" />
+          <button type="button" id="inputButton" onclick="displayBlockStats();">Show Block</button>
+          <hr />
+    
+          <button type="button" onclick="displayBlockStats('latest');">Show the Latest Block</button>
+          <button type="button" onclick="displayBlockStats('pending');">Show a Pending Block</button>
+        </form>
+        <br />
+        <br />
+      </div>
+      <div id="output">
+        <div class="row">
+          <div id="chartOutput" class="col-12"></div>
+        </div>
+        <div class="row">
+          <div id="textOutput" class="col-12"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script type="text/javascript">
+    var blockNumber = document.getElementById("blockNumber");
+    var output = document.getElementById("output");
+    var chartOutput = document.getElementById("chartOutput");
+    var textOutput = document.getElementById("textOutput");
+
+    window.addEventListener('load', function () {
+        if (typeof web3 !== 'undefined') {
+            console.log('Web3 Detected! ' + web3.currentProvider.constructor.name)
+            window.web3 = new Web3(web3.currentProvider);
+        } else {
+            document.getElementById("input").style.display = 'none';
+            textOutput.innerHTML = 'This app requires <a href="https://metamask.io/">MetaMask</a>.';
+        }
+    })
+
+    function displayBlockStats(value = blockNumber.value) {
+      chartOutput.innerHTML = '';
+      textOutput.innerHTML = '';
+      try {
+          web3.eth.getBlock(value, true, function(error, result){
+            if(!error)
+              if (result.transactions.length > 0) {
+                drawPieChart(parseTransactionsForChart(result.transactions), value);
+                displayBlockNumber(result.number);
+                displayTransactions(result.transactions);
+              } else {       
+                textOutput.innerHTML += `<strong>Block ${value} has no transactions.</strong>`;
+              }
+            else
+              console.error(error);
+          })
+      } catch (err) {
+          output.innerHTML = err;
+      }
+    }
+      
+    
+    function parseTransactionsForChart(transactions) {
+      let data = [];
+
+      for (let tr of transactions) {
+        if (tr.value > 0) {
+          data.push({
+            "value": web3.fromWei(tr.value, 'ether'),
+          });
+        }
+      }
+
+      return data;
+    }
+
+    blockNumber.addEventListener("keyup", function(event) {
+      event.preventDefault();
+      if (event.keyCode === 13) document.getElementById("inputButton").click();
+    });
+
+    function drawPieChart(data, blockNumber) {
+      var w = 1200, h = 500;      
+      var colors = d3.scale.category20c(); 
+
+      var vis = d3.select("#chartOutput")
+                  .append("svg:svg")
+                    .attr("width", w)
+                    .attr("height", h);
+
+      vis.selectAll("circle")
+          .data(data)
+        .enter().append("svg:circle")
+          .attr("stroke", "black")
+          .attr("fill", function(d, i) { return colors(i); })
+          .attr("cx", function(d, i) { return Math.random()*w; })
+          .attr("cy", function(d, i) { return Math.random()*h; })
+          .attr("r", function(d, i) { return d.value; })
+          .append("svg:title")
+            .text(function(d) { return d.value.toFixed(6) + ' ETH'; });
+    }
+
+    function displayBlockNumber(blockNumber) {
+      textOutput.innerHTML += `<h2>Block: ${blockNumber}</h2>`;
+    }
+
+    function displayTransactions(transactions) {
+      textOutput.innerHTML += (`<h3>Transactions (${transactions.length}):</h3>`
+                              + `<div class="pre-scrollable card" id="transactions"></div>`);
+
+      var transactionsDiv = document.getElementById("transactions");
+
+      for (var i = 0; i < transactions.length; i++) {
+        var tx = transactions[i];
+        var ethValue = tx.value == 0 ? 0 : web3.fromWei(tx.value, 'ether').toFixed(6);
+        
+        transactionsDiv.innerHTML += (`<p><a href="${LinkHelper.linkForTx(tx.hash)}">${ethValue} ETH</a> `
+                                      + `from <em><a href="${LinkHelper.linkForAddress(tx.from)}">${tx.from}</a></em> `
+                                      + `to <em><a href="${LinkHelper.linkForAddress(tx.to)}">${tx.to}</a></em></p>`);
+      }
+    }
+  </script>
+
+  <script src="https://d3js.org/d3.v3.min.js"></script>
+  <script src="https://code.jquery.com/jquery-2.2.4.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" crossorigin="anonymous"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.2/js/bootstrap.min.js" crossorigin="anonymous"></script>
+</body>
+</html>
